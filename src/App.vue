@@ -10,8 +10,10 @@ export default {
   name: 'app',
   data () {
     return {
-      page: 1,
-      url: 'http://www.axmag.com/download/pdfurl-guide.pdf'
+      pageNum: null,
+      url: 'http://www.axmag.com/download/pdfurl-guide.pdf',
+      pdfData: null,
+      narrow: false
     }
   },
   methods: {
@@ -28,34 +30,42 @@ export default {
         this.createPdfContainer(id)
       }
     },
-    loadPDF () {
-      pdfjsLib.getDocument(this.url).then(pdf => {
-        let id
-        const idTemplate = 'pdf-'
-        const pageNum = pdf.numPages
-        this.createSeriesCanvas(pageNum, idTemplate)
-        for (let i = 1; i <= pageNum; i++) {
-          id = idTemplate + i
-          this.renderPDF(pdf, i, id)
-        }
-      })
+    async loadPDF () {
+      const pdf = await pdfjsLib.getDocument(this.url)
+      this.pdfData = pdf
+      let id = null
+      const idTemplate = 'pdf-'
+      this.pageNum = pdf.numPages
+      this.createSeriesCanvas(this.pageNum, idTemplate)
+      for (let i = 1; i <= this.pageNum; i++) {
+        id = idTemplate + i
+        this.renderPDF(pdf, i, id)
+      }
     },
-    renderPDF (pdf, i, id) {
-      pdf.getPage(i).then(page => {
-        const scale = 2
-        const viewport = page.getViewport(scale)
-        const canvas = document.getElementById(id)
-        const context = canvas.getContext('2d')
-        canvas.height = viewport.height
-        canvas.width = viewport.width
-        canvas.style.width = '100%'
-
-        const renderContext = {
-          canvasContext: context,
-          viewport: viewport
-        }
-        page.render(renderContext)
-      })
+    async renderPDF (pdf, i, id, scale = 2) {
+      const page = await pdf.getPage(i)
+      const viewport = page.getViewport(scale)
+      const canvas = document.getElementById(id)
+      const context = canvas.getContext('2d')
+      canvas.height = viewport.height
+      canvas.width = viewport.width
+      canvas.addEventListener('click', this.zoom)
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      }
+      page.render(renderContext)
+    },
+    zoom (e) {
+      const canvas = e.target
+      if (!this.narrow) {
+        canvas.style.transformOrigin = '0 0'
+        canvas.style.transform = 'scale(1.5)'
+        this.narrow = true
+      } else {
+        canvas.style.transform = 'scale(1)'
+        this.narrow = false
+      }
     }
   },
   mounted () {
@@ -66,6 +76,7 @@ export default {
 
 <style>
 #main {
-  width: 100%
+  width: 100%;
+  overflow: scroll
 }
 </style>
