@@ -50,7 +50,7 @@
         <input type="text" v-model="url">
         <button @click="submit">确定</button>
       </div>
-      <div id="container"></div>
+      <div id="container" ref="container"></div>
     </div>
   </div>
 </template>
@@ -102,129 +102,118 @@ export default {
     if (this.url) {
       this.getPDF()
     }
-    const that = this
-    document.onkeydown = function (e) {
+    document.onkeydown = e => {
       // 取消全屏
-      if (that.isFullScreen) {
+      if (this.isFullScreen) {
         if (window.event.keyCode === 27) {
-          that.isFullScreen = false
+          this.isFullScreen = false
           return
         }
 
         if (window.event.keyCode === 37 || window.event.keyCode === 38) {
           e.preventDefault()
-          if (!that.checkPageValid('minus')) return
-          that.currentPage--
-          that.changePage()
-          that.fullscreen()
+          if (!this.checkPageValid('minus')) return
+          this.currentPage--
+          this.changePage()
+          this.fullscreen()
           return
         }
 
         if (window.event.keyCode === 39 || window.event.keyCode === 40) {
           e.preventDefault()
-          if (!that.checkPageValid('add')) return
-          that.currentPage++
-          that.changePage()
-          that.fullscreen()
+          if (!this.checkPageValid('add')) return
+          this.currentPage++
+          this.changePage()
+          this.fullscreen()
         }
       }
     }
   },
   methods: {
     async getPDF (fileData = null) {
-      if (!fileData) {
-        const pdf = await PDFJS.getDocument(this.url)
-        this.pdfData = pdf
-        // pdf数据页数从1开始
-        for (let i = 1; i <= pdf.numPages; i++) {
-          try {
-            this.renderPdf(pdf, i)
-          } catch (e) {
-            console.error(e)
-          }
-        }
-      } else {
-        const pdf = await PDFJS.getDocument(fileData)
-        this.pdfData = pdf
-        // pdf数据页数从1开始
-        for (let i = 1; i <= pdf.numPages; i++) {
-          try {
-            this.renderPdf(pdf, i)
-          } catch (e) {
-            console.error(e)
-          }
-        }
+      let pdf = null
+      fileData
+        ? pdf = await PDFJS.getDocument(fileData)
+        : pdf = await PDFJS.getDocument(this.url)
+
+      this.pdfData = pdf
+      // pdf数据页数从1开始
+      for (let i = 1; i <= pdf.numPages; i++) {
+        this.renderPdf(pdf, i)
       }
     },
     reRenderPdf () {
       for (let i = 1; i <= this.pdfData.numPages; i++) {
-        try {
-          this.renderPdf(this.pdfData, i)
-        } catch (e) {
-          console.error(e)
-        }
+        this.renderPdf(this.pdfData, i)
       }
     },
     async renderPdf (pdf, num) {
-      const page = await pdf.getPage(num)
-      const viewport = page.getViewport(this.scale)
+      try {
+        const page = await pdf.getPage(num)
 
-      // 存放canvas的元素
-      const container = document.getElementById('container')
-      const pageDiv = document.createElement('div')
+        const viewport = page.getViewport(this.scale)
+        // 存放canvas的元素
+        const container = this.$refs.container
+        const pageDiv = document.createElement('div')
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
 
-      const canvas = document.createElement('canvas')
-      const context = canvas.getContext('2d')
+        pageDiv.setAttribute('id', `page-${page.pageIndex + 1}`)
+        pageDiv.setAttribute('style',
+          ` position: relative;
+            display: flex;
+            justify-content: center;
+            padding-top: 50px `)
+        pageDiv.appendChild(canvas)
 
-      pageDiv.setAttribute('id', `page-${page.pageIndex + 1}`)
-      pageDiv.setAttribute('style',
-        `
-          position: relative;
-          display: flex;
-          justify-content: center;
-          padding-top: 50px`)
-      pageDiv.appendChild(canvas)
+        canvas.height = viewport.height
+        canvas.width = viewport.width
 
-      canvas.height = viewport.height
-      canvas.width = viewport.width
+        const renderContext = {
+          canvasContext: context,
+          viewport
+        }
 
-      const renderContext = {
-        canvasContext: context,
-        viewport
+        page.render(renderContext)
+        container.appendChild(pageDiv)
+        this.renderText(page, viewport, pageDiv)
+      } catch (e) {
+        console.error('Pdf Render Error::', e)
       }
-
-      page.render(renderContext)
-      container.appendChild(pageDiv)
-      this.renderText(page, viewport, pageDiv)
     },
     async renderText (page, viewport, pageDiv) {
-      const textContent = await page.getTextContent()
-      const textLayerDiv = document.createElement('div')
+      try {
+        const textContent = await page.getTextContent()
+        const textLayerDiv = document.createElement('div')
 
-      this.pdfText.items = this.pdfText.items.concat(textContent.items)
+        this.pdfText.items = this.pdfText.items.concat(textContent.items)
 
-      // 用于文字层与canvas层文字对齐
-      textLayerDiv.setAttribute('class', 'textLayer')
-      textLayerDiv.setAttribute(
-        'style',
-        `width: ${viewport.width}px; margin: 0 auto; margin-top: 50px`
-      )
+        // 用于文字层与canvas层文字对齐
+        textLayerDiv.setAttribute('class', 'textLayer')
+        textLayerDiv.setAttribute(
+          'style',
+          `width: ${viewport.width}px; margin: 0 auto; margin-top: 50px`
+        )
 
-      const textLayer = new TextLayerBuilder({
-        textLayerDiv: textLayerDiv,
-        pageIndex: page.pageIndex,
-        viewport
-      })
+        const textLayer = new TextLayerBuilder({
+          textLayerDiv: textLayerDiv,
+          pageIndex: page.pageIndex,
+          viewport
+        })
 
-      textLayer.setTextContent(textContent)
-      textLayer.render()
-      pageDiv.appendChild(textLayerDiv)
+        textLayer.setTextContent(textContent)
+        textLayer.render()
+        pageDiv.appendChild(textLayerDiv)
+      } catch (e) {
+        console.error('Text Render Error::', e)
+      }
     },
     resize (type) {
       type === 'add'
         ? this.scale += 0.1
         : this.scale -= 0.1
-      document.getElementById('container').innerHTML = ''
+
+      this.$refs.container.innerHTML = ''
       this.$nextTick(() => {
         this.reRenderPdf()
       })
@@ -237,6 +226,7 @@ export default {
     },
     prevPage () {
       if (!this.checkPageValid('minus')) return
+
       this.currentPage--
       this.changePage()
     },
@@ -263,17 +253,18 @@ export default {
     },
     handleUpload (e) {
       const file = this.$refs.pdfFile.files[0]
-      this.fileName = file.name
       const reader = new FileReader()
+
+      this.fileName = file.name
       reader.readAsDataURL(file, 'UTF-8')
       reader.onload = evt => {
-        const fileString = evt.target.result
-        document.getElementById('container').innerHTML = ''
-        this.getPDF(fileString)
+        const fileData = evt.target.result
+        this.$refs.container.innerHTML = ''
+        this.getPDF(fileData)
       }
     },
     submit () {
-      document.getElementById('container').innerHTML = ''
+      this.$refs.container.innerHTML = ''
       this.getPDF()
       this.isUrlInputShow = false
     }
