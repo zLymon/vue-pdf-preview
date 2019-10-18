@@ -1,29 +1,18 @@
 # pdf-preview
 
-## Project setup
-```
-npm install
-```
+> An example for preview pdf with vue and pdf.js.
 
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
+## Screenshot
+![image](/pdf-demo.png)
 
-### Compiles and minifies for production
-```
-npm run build
-```
 
-### Run your tests
-```
-npm run test
-```
+## Build Setup
 
-### Lints and fixes files
-```
-npm run lint
-```
+```bash
+# install dependencies
+$ npm install
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+# run serve with hot reload
+$ npm run serve
+
+```
