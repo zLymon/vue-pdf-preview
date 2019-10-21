@@ -2,6 +2,9 @@
 
 > An example for preview pdf with vue and pdf.js.
 
+## demo
+[Open pdf-preview-demo](http://www.lymon.top/pdf-preview)
+
 ## Screenshot
 ![image](/pdf-demo.png)
 
